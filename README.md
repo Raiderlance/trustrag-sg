@@ -730,22 +730,21 @@ Final top 5 evidence chunks
 
 The MMR objective can be expressed as:
 
-\[
-\text{MMR}(d) =
-\lambda \cdot \text{sim}(q,d)
--
-(1-\lambda) \cdot
-\max_{s \in S}\text{sim}(d,s)
-\]
+```text
+MMR(d) = λ · sim(q, d) − (1 − λ) · max[s ∈ S] sim(d, s)
+```
 
 where:
 
-- \(q\) is the question;
-- \(d\) is a candidate chunk;
-- \(S\) is the set of chunks already selected;
-- \(\lambda\) controls the trade-off between relevance and diversity.
+- `q` is the user query;
+- `d` is a candidate chunk;
+- `S` is the set of chunks already selected;
+- `sim(q, d)` measures the relevance of the candidate chunk to the query;
+- `sim(d, s)` measures the similarity between the candidate chunk and already selected chunks; and
+- `λ` controls the trade-off between relevance and diversity.
 
-A higher λ places greater weight on relevance, while a lower λ applies a stronger diversity penalty.
+A higher `λ` places greater emphasis on query relevance, while a lower `λ` places greater emphasis on avoiding redundant evidence.
+
 
 
 #### 15.1 MMR Lambda Selection
@@ -888,29 +887,43 @@ This design isolates the evidence-sufficiency stage as the primary experimental 
 
 Four end-to-end metrics are used.
 
-**Unsupported Answer Rate**
+**Unsupported Answer Rate (UAR) ↓**
 
 The proportion of substantive responses containing at least one material factual claim that cannot be supported by the retrieved top-five evidence.
 
-\[
-\text{Unsupported Answer Rate}
-=
-\frac{\text{Substantive responses containing unsupported material claims}}
-{\text{Total substantive responses}}
-\]
+```text
+Unsupported Answer Rate = Unsupported substantive responses / Total substantive responses
+```
 
-Lower is better.
+Lower is better. This metric focuses specifically on whether the system makes unsupported claims when it chooses to provide a substantive response.
 
-**Useful Answer Coverage**
+**Useful Answer Coverage ↑**
 
 The proportion of benchmark questions for which the system provides either a grounded complete answer or a useful supported partial answer. Pure abstentions are not counted as useful responses.
 
-\[
-\text{Useful Answer Coverage}
-=
-\frac{\text{Complete or useful qualified responses}}
-{\text{Total questions}}
-\]
+```text
+Useful Answer Coverage = Useful complete or qualified responses / Total benchmark questions
+```
+
+Higher is better. This metric captures the other side of the reliability–coverage trade-off: a system that abstains on every question may avoid unsupported answers, but would provide little practical value.
+
+**Fully Grounded Response Rate ↑**
+
+Among substantive responses, the proportion that contain no material factual claim unsupported by the retrieved top-five evidence.
+
+```text
+Fully Grounded Response Rate = Fully grounded substantive responses / Total substantive responses
+```
+
+Higher is better.
+
+**Correct Abstention on Insufficient Evidence ↑**
+
+Among questions whose retrieved evidence is labelled `INSUFFICIENT`, the proportion for which the system appropriately refrains from providing an unsupported substantive answer.
+
+```text
+Correct Abstention Rate = Correct abstentions on insufficient evidence / Total insufficient-evidence questions
+```
 
 Higher is better.
 
@@ -1097,7 +1110,7 @@ The BGE configurations first retrieve a larger candidate set before the rerankin
 Run:
 
 ```bash
-<INSERT ACTUAL COMMAND FOR RETRIEVER COMPARISON>
+python -c "from pathlib import Path; from Ingestion_evaluation.evaluate_retrievers import run_comparison; result = run_comparison(Path.cwd()); print(result['summary'])"
 ```
 
 Results are written to:
