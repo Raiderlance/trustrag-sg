@@ -1,4 +1,4 @@
-# trustrag
+# TrustRAG-sg
 The project investigates a specific failure mode of RAG systems:retrieving related information does not necessarily mean that the retrieved evidence is sufficient to support a definitive answer.
 
 TrustRAG therefore introduces an explicit evidence-sufficiency assessment
@@ -12,6 +12,21 @@ to housing, grants, loans, CPF usage, retirement, and interest rates.
 > **Disclaimer:** TrustRAG is a research prototype, not an HDB/CPF
 > eligibility determination or financial advice. Users should verify
 > consequential decisions against the linked official agency sources.
+
+
+### Demo Video
+
+A 3–5 minute demonstration of TrustRAG is available here: https://youtu.be/XnAzYMl9jSY
+
+**Demo video:** 
+
+The demonstration covers:
+
+1. Problem statement
+2. an example with sufficient retrieved evidence;
+3. an example with partial evidence and a qualified response;
+4. an example where TrustRAG abstains because the retrieved evidence is insufficient;
+
 
 ### 1. Problem Statement
 Singapore citizens often rely on official government information for consequential decisions involving housing and retirement. Although agencies such as HDB and CPF Board publish extensive guidance online, relevant information may be distributed across multiple pages and contain eligibility conditions, exceptions, and time-sensitive rules.
@@ -1435,17 +1450,6 @@ trustrag-sg/
 The repository separates corpus preparation, retrieval, evaluation, and the demonstration application so that individual stages can be reproduced and inspected independently.
 
 
-### 27. Demo Video
 
-A 3–5 minute demonstration of TrustRAG is available here: https://youtu.be/XnAzYMl9jSY
-
-**Demo video:** 
-
-The demonstration covers:
-
-1. Problem statement
-2. an example with sufficient retrieved evidence;
-3. an example with partial evidence and a qualified response;
-4. an example where TrustRAG abstains because the retrieved evidence is insufficient;
 
 
