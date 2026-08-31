@@ -1,11 +1,17 @@
 # trustrag-sg
-TrustRAG-SG is a reliability-aware retrieval-augmented generation (RAG) prototype for answering questions over Singapore public-sector information, with an explicit focus on reducing unsupported answers.
+The project investigates a specific failure mode of RAG systems:retrieving related information does not necessarily mean that the retrieved evidence is sufficient to support a definitive answer.
 
+TrustRAG-SG therefore introduces an explicit evidence-sufficiency assessment
+before answer generation. Based on the retrieved evidence, the system can
+provide a grounded answer, provide a qualified answer when only part of the
+question is supported, or abstain when the available evidence is insufficient.
 
-The project investigates a specific failure mode of RAG systems: retrieving related information does not necessarily mean that the retrieved evidence is sufficient to support a definitive answer. Trust_RAG_HDB_CPF therefore introduces an evidence-aware abstention mechanism that can answer, provide a qualified answer, or abstain when the available evidence is insufficient.
+The prototype focuses on publicly available HDB and CPF information relating
+to housing, grants, loans, CPF usage, retirement, and interest rates.
 
-The prototype focuses on publicly available HDB and CPF information relating to housing, grants, loans, CPF usage, retirement, and interest rates.
-
+> **Disclaimer:** TrustRAG-SG is a research prototype, not an HDB/CPF
+> eligibility determination or financial advice. Users should verify
+> consequential decisions against the linked official agency sources.
 
 ### 1. Problem Statement
 Singapore citizens rely on official government information for consequential decisions involving housing and retirement. Although agencies such as HDB and CPF Board publish extensive guidance online, relevant information may be distributed across multiple pages and contain eligibility conditions, exceptions, and time-sensitive rules.
@@ -30,7 +36,7 @@ The project has four main objectives:
 
 1) Build a reproducible RAG pipeline over a curated corpus of official HDB and CPF webpages.
 2) Compare multiple retrieval configurations, including lexical retrieval, semantic retrieval, and reranking.
-3) Evaluate whether an evidence-aware abstention mechanism reduces unsupported answers.
+3) Evaluate whether an explicit evidence-sufficiency mechanism can reduce unsupported answers while preserving useful answer coverage.
 4) Analyze the trade-off between answer coverage and reliability.
 
 
@@ -41,25 +47,27 @@ The primary end users are citizens seeking authoritative information about HDB a
 
 A secondary stakeholder group is public agencies exploring the deployment of RAG-based knowledge assistants. For this group, the prototype is also an evaluation framework for measuring whether a system can recognize when its knowledge base is insufficient to support an answer.
 
-
 ### 4. System Architecture
 
-The system is organised into separate stages so retrieval and generation failures can be evaluated independently.
+TrustRAG-SG separates retrieval, evidence assessment, and response generation into distinct stages. This modular design allows retrieval quality and evidence-sufficiency decisions to be evaluated independently from final answer generation.
 
-## System Architecture
+The final pipeline uses the retrieval configuration selected through the experiments described in later sections: section-aware 350/50 chunking, BGE semantic retrieval, and MMR diversification with λ = 0.9.
 
 ```mermaid
 flowchart TD
     A["Official HDB / CPF webpages"]
     B["Ingestion and cleaning"]
-    C["Section-aware chunking"]
-    D["Lexical / semantic retrieval"]
-    E["Cross-encoder reranking"]
-    F["Evidence sufficiency check"]
-    G{"Is the evidence sufficient?"}
-    H["Generate grounded answer"]
-    I["Abstain / request clarification"]
-    J["Citation-backed response"]
+    C["Section-aware chunking<br/>350 words / 50 overlap"]
+    D["BGE semantic retrieval"]
+    E["Top-20 candidate chunks"]
+    F["MMR diversification<br/>λ = 0.9"]
+    G["Final top-5 evidence"]
+    H["Evidence sufficiency assessment"]
+    I{"Evidence assessment"}
+    J["Grounded answer"]
+    K["Qualified answer"]
+    L["Abstain"]
+    M["User-facing response with source evidence"]
 
     A --> B
     B --> C
@@ -67,27 +75,84 @@ flowchart TD
     D --> E
     E --> F
     F --> G
-    G -->|Yes| H
-    G -->|No| I
-    H --> J
+    G --> H
+    H --> I
+    I -->|SUFFICIENT| J
+    I -->|PARTIAL| K
+    I -->|INSUFFICIENT| L
+    J --> M
+    K --> M
+    L --> M
 ```
 
-**AI Integration**
+The retrieval stage first identifies the 20 most semantically relevant chunks using `BAAI/bge-small-en-v1.5`. Maximal Marginal Relevance (MMR) is then applied to select five final evidence chunks while balancing query relevance and redundancy.
 
-AI is integrated into the core functionality.
+The retrieved evidence is subsequently assessed for:
 
-The AI-related components include:
+- **support** — whether it directly supports the requested claim;
+- **completeness** — whether all material parts of the question are covered;
+- **conditions** — whether required assumptions, eligibility conditions, or user-specific information are missing; and
+- **temporal validity** — whether the evidence applies to the requested time period.
 
-1) semantic document retrieval using embedding models;
-2) cross-encoder reranking of candidate passages;
-3) LLM-based grounded answer generation;
-4) evidence-aware answer qualification / abstention;
-5) structured evaluation of generated answers.
+The evidence is classified as `SUFFICIENT`, `PARTIAL`, or `INSUFFICIENT`. This classification determines whether TrustRAG provides a grounded answer, provides only the supported portion with an explicit limitation, or abstains.
 
-The generation model does not operate independently. It receives retrieved evidence and must generate answers that remain grounded in the supplied context.
+#### 4.1 Baseline RAG vs TrustRAG
 
+To isolate the effect of the evidence-sufficiency mechanism, the baseline RAG and TrustRAG use the same retrieval pipeline and receive the same final top-five evidence.
 
+**Baseline RAG**
 
+```text
+Question
+   ↓
+BGE retrieval
+   ↓
+Top-20 candidates
+   ↓
+MMR (λ = 0.9)
+   ↓
+Top-5 evidence
+   ↓
+Gemini grounded generation
+   ↓
+Response
+```
+
+**TrustRAG**
+
+```text
+Question
+   ↓
+BGE retrieval
+   ↓
+Top-20 candidates
+   ↓
+MMR (λ = 0.9)
+   ↓
+Top-5 evidence
+   ↓
+Gemini evidence-sufficiency assessment
+   ↓
+SUFFICIENT / PARTIAL / INSUFFICIENT
+   ↓
+Grounded answer / qualified answer / abstention
+```
+
+The key experimental difference is therefore the explicit evidence-sufficiency stage. The baseline relies on the generation model's grounding instructions to decide how to respond, whereas TrustRAG makes evidence sufficiency an explicit and observable intermediate decision.
+
+#### 4.2 AI Integration
+
+AI is integrated into the core retrieval and response pipeline rather than being used only as a final API call.
+
+The main AI components are:
+
+1. **Semantic retrieval** — BGE embeddings (`BAAI/bge-small-en-v1.5`) represent questions and document chunks for semantic similarity search.
+2. **Evidence-sufficiency assessment** — Gemini evaluates whether the retrieved evidence is sufficient, partial, or insufficient with respect to the user's exact question.
+3. **Grounded response generation** — Gemini generates responses using only the retrieved evidence and the evidence-sufficiency decision.
+
+MMR diversification is applied between semantic retrieval and generation. MMR is not itself an AI model; it is a retrieval-selection algorithm used to balance relevance and redundancy in the final evidence set.
+
+The generation model therefore does not operate directly on the full corpus. It receives a small retrieved evidence set and is constrained to generate responses grounded in that evidence.
 ### 5. Data Sources
 
 The corpus consists of a manually curated set of publicly available webpages from:
@@ -738,3 +803,392 @@ Final top-5 evidence chunks
 The cross-encoder reranker was not retained because it reduced aggregate retrieval performance, while MMR diversification improved Recall@5 without requiring an additional scoring model.
 
 This results in a relatively lightweight retrieval architecture in which BGE provides semantic candidate retrieval and MMR performs diversity-aware evidence selection.
+
+
+### 16. Evidence Sufficiency and TrustRAG
+
+The final retriever returns five evidence chunks using BGE semantic retrieval followed by MMR diversification.
+
+TrustRAG introduces an explicit evidence-sufficiency stage before answer generation. The retrieved evidence is assessed across four dimensions:
+
+- **support** — whether the evidence explicitly supports the required claim;
+- **completeness** — whether all material parts of the question are covered;
+- **conditions** — whether important eligibility conditions, assumptions, or user-specific information are missing;
+- **temporal validity** — whether the evidence applies to the requested time period.
+
+The evaluator assigns one of three labels:
+
+- `SUFFICIENT` — the retrieved evidence supports a complete grounded response;
+- `PARTIAL` — some useful response is supported, but material information or conditions remain unresolved;
+- `INSUFFICIENT` — the retrieved evidence does not reliably establish the requested response.
+
+The response policy then maps these evidence states to:
+
+| Evidence assessment | Response behaviour |
+|---|---|
+| `SUFFICIENT` | Provide a grounded answer using the retrieved evidence |
+| `PARTIAL` | Provide only the supported portion and explicitly state what remains unresolved |
+| `INSUFFICIENT` | Abstain rather than infer unsupported information |
+
+This distinction is important because the existence of an answer somewhere in the corpus does not necessarily mean that the evidence actually retrieved for a particular query is sufficient. Evidence sufficiency is therefore assessed against the **actual top-five retrieved chunks**, rather than solely against whether a gold source exists in the corpus.
+
+#### 16.1 Evidence-Sufficiency Benchmark
+
+The 60-question development benchmark was manually reviewed against the actual evidence returned by the final BGE + MMR retrieval configuration.
+
+Each question was assigned a reference evidence-sufficiency label based on whether the retrieved top-five chunks supported the exact requested response.
+
+These human-reviewed labels are used to evaluate the evidence-sufficiency component independently from final answer generation.
+
+This separation makes it possible to distinguish between:
+
+1. retrieval failure — the necessary evidence was not retrieved;
+2. sufficiency-assessment failure — the evidence was retrieved but incorrectly classified; and
+3. generation failure — sufficient evidence was available but the final response was not properly grounded.
+
+#### 16.2 Evidence-Sufficiency Evaluation
+
+The predicted `SUFFICIENT`, `PARTIAL`, and `INSUFFICIENT` labels are compared against the manually reviewed reference labels.
+
+Evaluation includes:
+
+- overall classification accuracy;
+- per-class precision;
+- per-class recall;
+- per-class F1-score; and
+- confusion-matrix analysis.
+
+Particular attention is given to `INSUFFICIENT` recall because failing to identify insufficient evidence may allow unsupported answers to proceed to generation. Conversely, excessive prediction of `INSUFFICIENT` may reduce useful answer coverage through unnecessary abstention.
+
+The purpose of this evaluation is therefore not simply to maximize classification accuracy, but to understand the trade-off between reliability and coverage.
+
+
+### 17. End-to-End Baseline vs TrustRAG Evaluation
+
+The final experiment evaluates whether the explicit evidence-sufficiency stage improves response reliability compared with a conventional grounded RAG baseline.
+
+Both systems use the same:
+
+- 60-question development benchmark;
+- 350/50 chunking configuration;
+- BGE semantic retriever;
+- top-20 candidate retrieval;
+- MMR diversification with λ = 0.9;
+- final top-five retrieved evidence;
+- Gemini generation model; and
+- deterministic generation settings.
+
+The baseline RAG generates directly from the retrieved evidence using grounding instructions.
+
+TrustRAG first performs the structured evidence-sufficiency assessment before deciding whether to provide a complete answer, provide a qualified answer, or abstain.
+
+This design isolates the evidence-sufficiency stage as the primary experimental difference between the two systems.
+
+#### 17.1 Evaluation Metrics
+
+Four end-to-end metrics are used.
+
+**Unsupported Answer Rate**
+
+The proportion of substantive responses containing at least one material factual claim that cannot be supported by the retrieved top-five evidence.
+
+\[
+\text{Unsupported Answer Rate}
+=
+\frac{\text{Substantive responses containing unsupported material claims}}
+{\text{Total substantive responses}}
+\]
+
+Lower is better.
+
+**Useful Answer Coverage**
+
+The proportion of benchmark questions for which the system provides either a grounded complete answer or a useful supported partial answer. Pure abstentions are not counted as useful responses.
+
+\[
+\text{Useful Answer Coverage}
+=
+\frac{\text{Complete or useful qualified responses}}
+{\text{Total questions}}
+\]
+
+Higher is better.
+
+**Fully Grounded Response Rate**
+
+Among substantive responses, the proportion containing no material factual claim unsupported by the retrieved evidence.
+
+**Correct Abstention on Insufficient Evidence**
+
+The proportion of questions labelled `INSUFFICIENT` for which the system appropriately refrains from providing an unsupported substantive answer.
+
+#### 17.2 Development Benchmark Results
+
+| Metric | Baseline RAG | TrustRAG |
+|---|---:|---:|
+| Unsupported Answer Rate ↓ | 2.1% (1/47) | **0.0% (0/42)** |
+| Useful Answer Coverage ↑ | **78.3% (47/60)** | 70.0% (42/60) |
+| Fully Grounded Responses ↑ | 97.9% (46/47) | **100.0% (42/42)** |
+| Correct Abstention on Insufficient Evidence ↑ | **100% (11/11)** | **100% (11/11)** |
+
+On this development benchmark, TrustRAG eliminated the observed unsupported substantive response and achieved full grounding among the responses it chose to provide.
+
+However, this improvement came with lower useful answer coverage. TrustRAG provided useful responses for 70.0% of questions compared with 78.3% for the grounded baseline.
+
+Both systems correctly refrained from providing unsupported substantive answers for all 11 questions whose retrieved evidence was annotated as insufficient.
+
+#### 17.3 Interpretation
+
+The results show a **reliability–coverage trade-off** rather than an unconditional improvement across all metrics.
+
+The explicit evidence-sufficiency stage increased conservatism: it prevented the observed unsupported response, but also abstained on some questions for which the retrieved evidence was sufficient to support a useful answer.
+
+The primary remaining failure mode is therefore **over-abstention**, rather than failure to detect clearly insufficient evidence.
+
+These results suggest that evidence sufficiency can serve as an explicit and measurable control point within a RAG pipeline, but the control mechanism requires calibration to preserve useful answer coverage.
+
+Because the 60-question benchmark was also used during system development and configuration selection, these results are treated as **development-benchmark findings rather than unbiased estimates of production performance**. A held-out benchmark would be required for stronger claims about generalization.
+
+### 18. Demonstration Application
+
+TrustRAG-SG includes an interactive demonstration application that exposes the evidence-aware behaviour of the system rather than presenting only the final generated answer.
+
+For each question, the application displays:
+
+- the final response;
+- the evidence-sufficiency classification;
+- the rationale for the classification;
+- support, completeness, conditions, and temporal-validity assessments; and
+- the retrieved official evidence and source links.
+
+The interface is designed to demonstrate three important behaviours:
+
+1. **Sufficient evidence** — provide a complete grounded response;
+2. **Partial evidence** — preserve useful supported information while explicitly identifying what cannot be established;
+3. **Insufficient evidence** — abstain when the retrieved evidence cannot reliably support the requested answer.
+
+The application also supports comparison with the conventional RAG baseline so that the effect of the evidence-sufficiency stage can be inspected under identical retrieval conditions.
+
+
+
+### 19. Running the Application
+
+#### 19.1 Prerequisites
+
+- Python 3.x
+- Git
+- a Gemini API key
+
+#### 19.2 Installation
+
+```bash
+git clone [<repository-url>](https://github.com/Raiderlance/trustrag-sg/)
+cd trustrag-sg
+
+python -m venv .venv
+```
+
+Activate the virtual environment and install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create a local `.env` file:
+
+```text
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+The `.env` file is excluded from version control and API keys must not be committed to the repository.
+
+#### 19.3 Run the Application
+
+```bash
+streamlit run app.py
+```
+
+#### 19.4 Reproduce Evaluation
+
+```bash
+# Replace these examples with the actual repository commands
+python ...
+```
+
+Exact commands for reproducing ingestion, retrieval evaluation, evidence-sufficiency evaluation, and end-to-end evaluation are provided with the corresponding scripts.
+
+### 20. Docker Deployment
+
+A Docker configuration is provided to make the application reproducible without requiring users to manually recreate the Python environment.
+
+Build the image:
+
+```bash
+docker build -t trustrag-sg .
+```
+
+Run the container:
+
+```bash
+docker run --env-file .env -p 8501:8501 trustrag-sg
+```
+
+The Gemini API key is supplied at runtime rather than embedded in the Docker image.
+
+
+### 21. Data Provenance, Licensing and Privacy
+
+#### 21.1 Provenance
+
+The corpus consists exclusively of publicly available information from official Singapore government sources:
+
+- Housing & Development Board (HDB); and
+- Central Provident Fund Board (CPF Board).
+
+Each source is recorded in `source_manifest.json` with metadata including source ID, agency, page title, original URL, domain/category, retrieval date, and processing status.
+
+The initial corpus contains 22 curated pages covering housing eligibility, grants, loans, resale procedures, CPF usage for housing, retirement, CPF LIFE, and CPF interest rates.
+
+#### 21.2 Collection and Processing
+
+Pages were collected and processed into a local research corpus.
+
+Most pages were retrieved through the ingestion pipeline. HDB pages that could not be reliably retrieved through the Python `requests` library were manually downloaded from the official website. One JavaScript-rendered CPF page was retrieved using Playwright.
+
+HTML content was cleaned and divided using document heading structure before section-aware chunking.
+
+The processed text is used for retrieval experiments; source metadata and URLs are preserved so retrieved evidence can be traced back to the original official page.
+
+#### 21.3 Licensing and Source Compliance
+
+The project uses public agency publications for a non-commercial research prototype. Source provenance and original URLs are retained rather than presenting the corpus as independently authored material.
+
+Collection methods should respect the applicable website terms of use and `robots.txt`. Manually collected pages are explicitly documented rather than represented as automatically scraped content.
+
+#### 21.4 Privacy
+
+The corpus contains public policy information and does not intentionally contain personal information.
+
+Benchmark questions are manually designed evaluation examples rather than records of real citizens.
+
+The prototype should therefore not be interpreted as approval for processing sensitive citizen information through the same infrastructure. A production deployment involving personal information would require additional privacy, security, retention, access-control, and model-provider governance considerations.
+
+
+### 22. Target Environment, Scale, Monitoring and Deployment Risk
+
+TrustRAG-SG is designed primarily for citizens seeking guidance from public HDB and CPF information, while a potential deployment environment would be a public-sector informational assistant where reliability and traceability are more important than unrestricted answer coverage. The retrieval layer uses a compact BGE embedding model over a relatively small curated corpus, allowing document embeddings to be precomputed and reused. At larger scale, the main recurring inference cost would come from LLM calls for evidence assessment and response generation. TrustRAG currently requires up to two LLM calls per answered query, creating a higher latency and inference cost than the single-call baseline. These costs could be reduced through caching, smaller task-specific models, or invoking the second call only when required.
+
+Post-deployment monitoring should include retrieval Recall@K on a maintained benchmark, evidence-sufficiency label distribution, abstention rate, useful answer coverage, unsupported-answer rate, latency, token usage, and changes in source freshness.
+
+A significant deployment risk is **policy change and stale evidence**. A response can be faithfully grounded in retrieved evidence while still being incorrect if the underlying government page is outdated. Production deployment would therefore require source freshness monitoring, scheduled re-ingestion, content-change detection, and versioned evaluation when policy documents change.
+
+### 23. Development Narrative
+
+Development followed an iterative evaluation-driven process rather than fixing the architecture in advance.
+
+The first stage focused on corpus construction and retrieval. Section-aware chunking was selected because policy conditions and exceptions are frequently organised under document headings. Three chunk-size configurations were then benchmarked rather than choosing a chunk size heuristically.
+
+TF-IDF was used as a lexical baseline before evaluating BGE semantic retrieval. A cross-encoder reranker was subsequently tested but did not improve the selected retrieval metrics, so it was excluded from the final architecture.
+
+Retrieval error analysis identified repeated chunks from the same source as a potential source of evidence crowding. This motivated an MMR diversification experiment. A λ value of 0.9 provided the strongest trade-off on the development benchmark and was selected for the final retriever.
+
+Once retrieval was fixed, development shifted to the project's main reliability question. Retrieved evidence was manually reviewed for sufficiency, and an explicit evidence-assessment stage was introduced before generation.
+
+The final baseline comparison showed that the evidence gate improved observed grounding but also introduced over-abstention. This shifted the remaining problem from simply preventing unsupported answers toward calibrating the reliability–coverage trade-off.
+
+
+
+### 24. AI and Coding-Agent Usage
+
+AI-assisted development tools were used during this project.
+
+**ChatGPT** was used to support brainstorming, problem framing, experimental design discussions, evaluation-rubric development, README drafting, and review of results.
+
+**Codex in VS Code** was used as a coding assistant to review and support implementation, debugging, refactoring, test development, and application development. Generated or suggested code was reviewed and tested before inclusion in the repository.
+
+AI assistance was also used during initial benchmark and reference-answer development. These annotations were not treated as validated gold labels until manually reviewed against the corresponding official source evidence.
+
+The final architecture, experimental choices, interpretation of results, and submitted implementation were reviewed by the project author.
+
+Coding-agent and AI chat logs used during development are included in:
+
+```text
+<INSERT ACTUAL LOG DIRECTORY>
+```
+
+The logs are provided for transparency in accordance with the submission requirements.
+
+
+### 25. Limitations
+
+TrustRAG-SG is a research prototype with several limitations.
+
+- The corpus contains only a curated subset of HDB and CPF information and is not a complete representation of either agency's policies.
+- The 60-question benchmark is relatively small and was used during development, so reported results should not be interpreted as unbiased production-performance estimates.
+- Evidence-sufficiency assessment remains imperfect, particularly for borderline `PARTIAL` cases.
+- The current evidence gate is conservative and can unnecessarily abstain when sufficient evidence has been retrieved.
+- Source-level and evidence-level relevance annotations involve human judgement.
+- Policy information can change over time, creating source-freshness risk.
+- The prototype does not determine individual eligibility and should not replace official agency guidance.
+- LLM behaviour may vary across model versions even when prompts and retrieval evidence remain unchanged.
+
+A separate held-out benchmark and broader corpus would be required for stronger claims about generalisation.
+
+
+### 26. Repository Structure
+
+```text
+trustrag-sg/
+├── app/
+│   └── ...
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── ...
+├── evaluation/
+│   └── ...
+├── src/
+│   └── trustrag/
+│       ├── retrieval.py
+│       ├── ...
+│       └── ...
+├── tests/
+├── source_manifest.json
+├── requirements.txt
+├── Dockerfile
+└── README.md
+```
+
+The repository separates corpus preparation, retrieval, evaluation, and the demonstration application so that individual stages can be reproduced and inspected independently.
+
+
+### 27. Demo Video
+
+A 3–5 minute demonstration of TrustRAG-SG is available here:
+
+**Demo video:** [INSERT VIDEO LINK]
+
+The demonstration covers:
+
+1. an example with sufficient retrieved evidence;
+2. an example with partial evidence and a qualified response;
+3. an example where TrustRAG abstains because the retrieved evidence is insufficient;
+4. inspection of the retrieved official evidence; and
+5. the observed reliability–coverage trade-off from the development benchmark.
+
+
+16. Evidence Sufficiency
+17. End-to-End Baseline vs TrustRAG Evaluation
+18. Demonstration Application
+19. Running the Application
+20. Docker Deployment
+21. Data Provenance, Licensing and Privacy
+22. Target Environment, Scale, Monitoring and Deployment Risk
+23. Development Narrative
+24. AI and Coding-Agent Usage
+25. Limitations
+26. Repository Structure
+27. Demo Video
+
+The conventional RAG baseline receives the identical top-five evidence but generates the response directly without the explicit sufficiency assessment.
