@@ -1,0 +1,4 @@
+method,candidate_retrieval_miss,duplicate_crowding,partial_or_missing_gold,ranking_miss,success
+BGE,0,8,3,4,36
+BGE + reranker,0,12,1,7,31
+TF-IDF,1,7,2,4,37

@@ -1,0 +1,14 @@
+{
+  "workbook_rows": 60,
+  "excluded_rows": 9,
+  "remaining_rows": 51,
+  "scored_rows": 51,
+  "unscored_rows": 0,
+  "model": "BAAI/bge-small-en-v1.5",
+  "query_prefix": "Represent this sentence for searching relevant passages: ",
+  "embedding_dimension": 384,
+  "max_sequence_length": 512,
+  "batch_size": 32,
+  "normalized_embeddings": true,
+  "similarity": "dot product (equivalent to cosine for normalized embeddings)"
+}

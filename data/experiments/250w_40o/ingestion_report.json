@@ -1,0 +1,165 @@
+{
+  "created_at": "2026-08-29T16:32:53.936791+00:00",
+  "manifest": "C:\\Users\\spide\\Downloads\\trustrag_sg_ingestion\\source_manifest.json",
+  "chunking": {
+    "max_words": 250,
+    "overlap_words": 40
+  },
+  "sources": [
+    {
+      "source_id": "HDB01",
+      "status": "ok",
+      "sections": 32,
+      "chunks": 113,
+      "sha256": "8b3b3d3b5f1a12ed7f3341daf287aebbb8a03cc8977cecf37b4d1d4cead9d268"
+    },
+    {
+      "source_id": "HDB02",
+      "status": "ok",
+      "sections": 11,
+      "chunks": 39,
+      "sha256": "9fd184d5f007bc2a9c1f9f1f996f71b056b62d0287c18496bf8eaee36125d79c"
+    },
+    {
+      "source_id": "HDB03",
+      "status": "ok",
+      "sections": 6,
+      "chunks": 13,
+      "sha256": "6d2087a69a98f747ff8bf1a40340f215be32d71bc5d6469f8935cbda359ffaab"
+    },
+    {
+      "source_id": "HDB04",
+      "status": "ok",
+      "sections": 12,
+      "chunks": 24,
+      "sha256": "f19f08a21a43d417efb8972477a141fb61e7cad9c962f784513b779b26d53626"
+    },
+    {
+      "source_id": "HDB05",
+      "status": "ok",
+      "sections": 10,
+      "chunks": 20,
+      "sha256": "58aa334d16ed28b4ac2739358cd7756c6a37e6252f37948fd338aa31411d498e"
+    },
+    {
+      "source_id": "HDB06",
+      "status": "ok",
+      "sections": 6,
+      "chunks": 15,
+      "sha256": "70cfc0c53845207a9e30e6e4805389077bdb9215895e45fbcf9c1aa9f2c698f9"
+    },
+    {
+      "source_id": "HDB07",
+      "status": "ok",
+      "sections": 6,
+      "chunks": 14,
+      "sha256": "208e381032408d07c58daf2a69317869af7f6f1a47ab021f2d0a95a1616cebca"
+    },
+    {
+      "source_id": "HDB08",
+      "status": "ok",
+      "sections": 10,
+      "chunks": 29,
+      "sha256": "a78817ddaa4f9eb1e1f6257b1b318c25403d588c1ff7b83aa2472eba8dc060f3"
+    },
+    {
+      "source_id": "HDB09",
+      "status": "ok",
+      "sections": 3,
+      "chunks": 5,
+      "sha256": "f9187146e941e10bba0bddcfebf99099a7a7cf43dbc650a7e21fd1e3bc7416b9"
+    },
+    {
+      "source_id": "HDB10",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 4,
+      "sha256": "37a59ace1e9a8084662f321cebb5e2f78b35df58a28ecb62da3e59e2e7d6a272"
+    },
+    {
+      "source_id": "HDB11",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 1,
+      "sha256": "5db6f7ab95fdbc50a09252834ce69d28def4df9503dfe39ed32542b5c55a2735"
+    },
+    {
+      "source_id": "HDB12",
+      "status": "ok",
+      "sections": 11,
+      "chunks": 14,
+      "sha256": "077472c049d89c84b51d7476b0bad296ca673062ba8abc34fe552cf83ee352d2"
+    },
+    {
+      "source_id": "CPF01",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 7,
+      "sha256": "465750198a59e65d1dfbae1df756a83bd0ef1224085ef79c11c13b53412f54b4"
+    },
+    {
+      "source_id": "CPF02",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 14,
+      "sha256": "3bf9ddeffd6257c38f2242c07b213c57d45d510fce23429564fdff94e0288157"
+    },
+    {
+      "source_id": "CPF03",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 9,
+      "sha256": "497480cfe62c8390b2830681ad60d0badee10a0dff2e474ec88374cd8ccc7552"
+    },
+    {
+      "source_id": "CPF04",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 8,
+      "sha256": "045156585f15aa9134ea5070b10efdb21ace2f18882d10e116683ab4b88e2487"
+    },
+    {
+      "source_id": "CPF05",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 2,
+      "sha256": "4933641fb12b950013b06bb07ce29296cb26e573fbd0629393d049879498ee8d"
+    },
+    {
+      "source_id": "CPF06",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 4,
+      "sha256": "a097a7e757ab5cb2740a6e6bfcc192ea5d18cf387e12a410460e1aa6542f8809"
+    },
+    {
+      "source_id": "CPF07",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 8,
+      "sha256": "d874a4dd069a263b16d171eb61883486b73fddc76a3c0bb4baafcd328ccb67b0"
+    },
+    {
+      "source_id": "CPF08",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 12,
+      "sha256": "083bf1a027b9483cf1dcf6d79b0bfa39d24ec4fcbaa960b131d14ae3fc6c0032"
+    },
+    {
+      "source_id": "CPF09",
+      "status": "ok",
+      "sections": 7,
+      "chunks": 8,
+      "sha256": "d3ef27295fa982fee779d09253c0f36eed571a6808096c1910d10407b7fadc81"
+    },
+    {
+      "source_id": "CPF10",
+      "status": "ok",
+      "sections": 1,
+      "chunks": 1,
+      "sha256": "41d0791aa0155b202ee03028e2eeb7ee81ddaadd188fb9396c7e39b525206622"
+    }
+  ],
+  "total_chunks": 364
+}

@@ -1,0 +1,19 @@
+{
+  "total": 60,
+  "labels": {
+    "SUFFICIENT": 41,
+    "PARTIAL": 8,
+    "INSUFFICIENT": 11
+  },
+  "annotation_status": "ai_reviewed_draft_pending_human_validation",
+  "label_definitions": {
+    "SUFFICIENT": "Top-five text fully supports a safe answer or qualified correction to the benchmark question.",
+    "PARTIAL": "Top-five text contains useful evidence but omits at least one material fact or required component.",
+    "INSUFFICIENT": "Top-five text provides no usable basis for the requested answer, or the answer is future, forecast, or private-account information unavailable in the corpus."
+  },
+  "behavior_policy": {
+    "SUFFICIENT": "Answer using only retrieved evidence.",
+    "PARTIAL": "Provide only the supported portion, disclose the evidence gap, and abstain from missing claims.",
+    "INSUFFICIENT": "Abstain."
+  }
+}

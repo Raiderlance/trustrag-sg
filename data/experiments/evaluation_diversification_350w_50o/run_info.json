@@ -1,0 +1,22 @@
+{
+  "workbook_rows": 60,
+  "excluded_rows": 9,
+  "remaining_rows": 51,
+  "scored_rows": 51,
+  "unscored_rows": 0,
+  "corpus": "350 words / 50 overlap",
+  "chunks": 280,
+  "model": "BAAI/bge-small-en-v1.5",
+  "candidate_k": 20,
+  "final_k": 5,
+  "primary_lambda": 0.9,
+  "lambda_sweep": [
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9
+  ],
+  "mmr_formula": "lambda * query_similarity - (1-lambda) * max_similarity_to_selected",
+  "normalized_embeddings": true
+}
