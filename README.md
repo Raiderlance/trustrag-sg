@@ -1,7 +1,7 @@
-# trustrag-sg
+# trustrag
 The project investigates a specific failure mode of RAG systems:retrieving related information does not necessarily mean that the retrieved evidence is sufficient to support a definitive answer.
 
-TrustRAG-SG therefore introduces an explicit evidence-sufficiency assessment
+TrustRAG therefore introduces an explicit evidence-sufficiency assessment
 before answer generation. Based on the retrieved evidence, the system can
 provide a grounded answer, provide a qualified answer when only part of the
 question is supported, or abstain when the available evidence is insufficient.
@@ -9,21 +9,25 @@ question is supported, or abstain when the available evidence is insufficient.
 The prototype focuses on publicly available HDB and CPF information relating
 to housing, grants, loans, CPF usage, retirement, and interest rates.
 
-> **Disclaimer:** TrustRAG-SG is a research prototype, not an HDB/CPF
+> **Disclaimer:** TrustRAG is a research prototype, not an HDB/CPF
 > eligibility determination or financial advice. Users should verify
 > consequential decisions against the linked official agency sources.
 
 ### 1. Problem Statement
-Singapore citizens rely on official government information for consequential decisions involving housing and retirement. Although agencies such as HDB and CPF Board publish extensive guidance online, relevant information may be distributed across multiple pages and contain eligibility conditions, exceptions, and time-sensitive rules.
+Singapore citizens often rely on official government information for consequential decisions involving housing and retirement. Although agencies such as HDB and CPF Board publish extensive guidance online, relevant information may be distributed across multiple pages and contain eligibility conditions, exceptions, and time-sensitive rules.
 
 RAG systems can make this information easier to navigate by retrieving official sources before generating an answer. However, a key reliability issue remains: a system may retrieve information that is related to the question but still insufficient to support the exact answer requested.
 
 This creates the risk of plausible but unsupported answers.
 
 For example:
--a user may ask about a future CPF interest rate that has not been published;
--a user may provide only partial eligibility information;
--relevant evidence may span multiple HDB and CPF pages;
+
+-a user may ask about a future CPF interest rate that has not been published.
+
+-a user may provide only partial eligibility information.
+
+-relevant evidence may span multiple HDB and CPF pages.
+
 -an outdated source may be retrieved for a time-sensitive policy question.
 
 In these cases, confidently generating an answer may be less desirable than explicitly stating that the available evidence is insufficient.
@@ -857,9 +861,83 @@ Evaluation includes:
 - per-class F1-score; and
 - confusion-matrix analysis.
 
-Particular attention is given to `INSUFFICIENT` recall because failing to identify insufficient evidence may allow unsupported answers to proceed to generation. Conversely, excessive prediction of `INSUFFICIENT` may reduce useful answer coverage through unnecessary abstention.
 
-The purpose of this evaluation is therefore not simply to maximize classification accuracy, but to understand the trade-off between reliability and coverage.
+#### 16.2 Evidence-Assessment Evaluation
+
+The `SUFFICIENT`, `PARTIAL`, and `INSUFFICIENT` decisions produced by
+TrustRAG's evidence-assessment stage were compared with the manually reviewed
+reference labels for all 60 development-benchmark questions.
+
+Classification performance was evaluated using:
+
+- overall accuracy;
+- per-class precision;
+- per-class recall;
+- per-class F1-score; and
+- confusion-matrix analysis.
+
+The reference-label distribution was:
+
+| Reference label | Questions |
+|---|---:|
+| `SUFFICIENT` | 43 |
+| `PARTIAL` | 6 |
+| `INSUFFICIENT` | 11 |
+| **Total** | **60** |
+
+TrustRAG's evidence-assessment stage achieved an overall classification
+accuracy of **76.7% (46/60)**.
+
+| Evidence class | Precision | Recall | F1-score | Support |
+|---|---:|---:|---:|---:|
+| SUFFICIENT | **0.939** | 0.721 | **0.816** | 43 |
+| PARTIAL | 0.444 | 0.667 | 0.533 | 6 |
+| INSUFFICIENT | 0.611 | **1.000** | 0.759 | 11 |
+| **Overall accuracy** | | | **0.767** | **60** |
+
+The confusion matrix was:
+
+| Actual ↓ / Predicted → | SUFFICIENT | PARTIAL | INSUFFICIENT |
+|---|---:|---:|---:|
+| **SUFFICIENT** | **31** | 5 | 7 |
+| **PARTIAL** | 2 | **4** | 0 |
+| **INSUFFICIENT** | 0 | 0 | **11** |
+
+
+#### 16.3 Error Analysis
+
+The most important result is the behaviour on genuinely insufficient
+evidence. TrustRAG correctly identified all 11 `INSUFFICIENT` cases,
+corresponding to a recall of **1.000** for this class. None of the questions
+whose retrieved evidence was labelled `INSUFFICIENT` was incorrectly
+classified as `SUFFICIENT`.
+
+However, this safety-oriented behaviour came with increased conservatism.
+`INSUFFICIENT` precision was **0.611** because seven questions whose evidence
+was labelled `SUFFICIENT` were instead classified as `INSUFFICIENT`.
+
+The opposite pattern can be observed for `SUFFICIENT`. Precision was high at
+**0.939**, indicating that when TrustRAG classified evidence as sufficient,
+that decision was usually consistent with the reference annotation. Recall
+was lower at **0.721**, showing that the system failed to recognize some
+cases where sufficient evidence was already available.
+
+`PARTIAL` was the most difficult class, with an F1-score of **0.533**.
+However, only six questions belong to this category, so conclusions about
+performance on partial evidence should be treated cautiously.
+
+Overall, the dominant observed assessment error is therefore
+**over-conservatism rather than unsafe classification of insufficient
+evidence as sufficient**. This behaviour helps explain the lower useful
+answer coverage observed in the subsequent end-to-end evaluation: some
+questions that could have been answered from the retrieved evidence are
+instead routed toward abstention.
+
+The result also highlights an important role of the `PARTIAL` state.
+TrustRAG is not intended to treat uncertainty as a binary choice between
+answering and refusing. When useful evidence exists but does not fully
+establish the requested answer, `PARTIAL` allows the system to provide the
+supported information while explicitly communicating the remaining gaps.
 
 
 ### 17. End-to-End Baseline vs TrustRAG Evaluation
@@ -1334,21 +1412,21 @@ A separate held-out benchmark and broader corpus would be required for stronger 
 
 ```text
 trustrag-sg/
-├── app/
+
+├── Ingestion_evaluation/
 │   └── ...
 ├── data/
 │   ├── raw/
 │   ├── processed/
 │   └── ...
-├── evaluation/
+├── notebooks/
 │   └── ...
-├── src/
-│   └── trustrag/
-│       ├── retrieval.py
-│       ├── ...
-│       └── ...
-├── tests/
+├── test/
+│   ├── test_ingest.py
+│   ├── ...
 ├── source_manifest.json
+├── app.py
+├── rag.py
 ├── requirements.txt
 ├── Dockerfile
 └── README.md
@@ -1359,30 +1437,15 @@ The repository separates corpus preparation, retrieval, evaluation, and the demo
 
 ### 27. Demo Video
 
-A 3–5 minute demonstration of TrustRAG-SG is available here:
+A 3–5 minute demonstration of TrustRAG is available here: https://youtu.be/XnAzYMl9jSY
 
-**Demo video:** [INSERT VIDEO LINK]
+**Demo video:** 
 
 The demonstration covers:
 
-1. an example with sufficient retrieved evidence;
-2. an example with partial evidence and a qualified response;
-3. an example where TrustRAG abstains because the retrieved evidence is insufficient;
-4. inspection of the retrieved official evidence; and
-5. the observed reliability–coverage trade-off from the development benchmark.
+1. Problem statement
+2. an example with sufficient retrieved evidence;
+3. an example with partial evidence and a qualified response;
+4. an example where TrustRAG abstains because the retrieved evidence is insufficient;
 
 
-16. Evidence Sufficiency
-17. End-to-End Baseline vs TrustRAG Evaluation
-18. Demonstration Application
-19. Running the Application
-20. Docker Deployment
-21. Data Provenance, Licensing and Privacy
-22. Target Environment, Scale, Monitoring and Deployment Risk
-23. Development Narrative
-24. AI and Coding-Agent Usage
-25. Limitations
-26. Repository Structure
-27. Demo Video
-
-The conventional RAG baseline receives the identical top-five evidence but generates the response directly without the explicit sufficiency assessment.
