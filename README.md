@@ -969,52 +969,233 @@ The interface is designed to demonstrate three important behaviours:
 
 The application also supports comparison with the conventional RAG baseline so that the effect of the evidence-sufficiency stage can be inspected under identical retrieval conditions.
 
-
-
 ### 19. Running the Application
 
 #### 19.1 Prerequisites
 
+Before running the application, ensure the following are installed or available:
+
 - Python 3.x
 - Git
-- a Gemini API key
+- A Gemini API key
 
 #### 19.2 Installation
 
-```bash
-git clone [<repository-url>](https://github.com/Raiderlance/trustrag-sg/)
-cd trustrag-sg
+Clone the repository and navigate to the project directory:
 
+```bash
+git clone <repository-url>
+cd trustrag-sg
+```
+
+Create a Python virtual environment:
+
+```bash
 python -m venv .venv
 ```
 
-Activate the virtual environment and install dependencies:
+Activate the virtual environment.
 
-```bash
-pip install -r requirements.txt
+**Windows PowerShell:**
+
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
-Create a local `.env` file:
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+Install the application dependencies:
+
+```bash
+python -m pip install -r requirements-app.txt
+```
+
+Create a `.env` file in the repository root and add your Gemini configuration:
 
 ```text
 GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
-The `.env` file is excluded from version control and API keys must not be committed to the repository.
+The `.env` file is excluded from version control. API keys and other credentials must not be committed to the repository.
 
 #### 19.3 Run the Application
+
+From the repository root, start the Streamlit application:
 
 ```bash
 streamlit run app.py
 ```
 
+Once Streamlit starts, open the local URL displayed in the terminal, typically:
+
+```text
+http://localhost:8501
+```
 #### 19.4 Reproduce Evaluation
 
+Evaluation dependencies are separate from the application dependencies. From the repository root, install them using:
+
 ```bash
-# Replace these examples with the actual repository commands
-python ...
+python -m pip install -r Ingestion_evaluation/requirements-evaluation.txt
 ```
+
+All evaluation commands below should be run from the repository root.
+
+The experiments expect the following benchmark and corpus files to be present:
+
+```text
+evaluation_questions/
+├── benchmark_60_with_draft_gold_answers.xlsx
+└── benchmark_60_evidence_sufficiency_annotations.xlsx
+
+data/
+├── experiments/
+│   ├── 150w_30o/chunks.jsonl
+│   ├── 250w_40o/chunks.jsonl
+│   └── 350w_50o/chunks.jsonl
+└── processed/
+    └── chunks.jsonl
+```
+
+##### 19.4.1 BGE Chunking Evaluation
+
+This experiment compares the three section-aware chunking configurations:
+
+- 150 words / 30-word overlap;
+- 250 words / 40-word overlap; and
+- 350 words / 50-word overlap.
+
+All configurations use `BAAI/bge-small-en-v1.5` and are evaluated using Recall@1, Recall@3, Recall@5, and MRR.
+
+Run:
+
+```bash
+python -c "from pathlib import Path; from Ingestion_evaluation.evaluate_bge import run_evaluation; result = run_evaluation(Path.cwd()); print(result['summary'])"
+```
+
+Results are written to:
+
+```text
+data/experiments/evaluation_bge/
+```
+
+##### 19.4.2 TF-IDF, BGE, and BGE + Reranking
+
+After selecting the 350/50 chunking configuration, this experiment compares:
+
+1. TF-IDF lexical retrieval;
+2. BGE semantic retrieval using `BAAI/bge-small-en-v1.5`; and
+3. BGE retrieval followed by cross-encoder reranking using `BAAI/bge-reranker-base`.
+
+The BGE configurations first retrieve a larger candidate set before the reranking configuration reorders the candidates.
+
+Run:
+
+```bash
+<INSERT ACTUAL COMMAND FOR RETRIEVER COMPARISON>
+```
+
+Results are written to:
+
+```text
+data/experiments/evaluation_retrievers_350w_50o/
+```
+
+The cross-encoder configuration is retained as an evaluated alternative but was not selected for the final retrieval architecture.
+
+##### 19.4.3 Similarity Ranking vs MMR Diversification
+
+This experiment compares similarity-only top-five selection against Maximal Marginal Relevance (MMR) selection from the same BGE top-20 candidate set.
+
+MMR λ values from 0.5 to 0.9 are evaluated, with λ = 0.9 selected as the final configuration based on the development benchmark.
+
+Run:
+
+```bash
+python -c "from pathlib import Path; from Ingestion_evaluation.evaluate_diversification import run_diversification_evaluation; result = run_diversification_evaluation(Path.cwd()); print(result['summary'])"
+```
+
+Results, diversity statistics, and error-analysis outputs are written to:
+
+```text
+data/experiments/evaluation_diversification_350w_50o/
+```
+
+##### 19.4.4 Evidence-Sufficiency Evaluation Data
+
+The final retrieval configuration uses BGE retrieval followed by MMR diversification with λ = 0.9.
+
+To regenerate the top-five retrieved evidence bundle for all 60 benchmark questions, run:
+
+```bash
+python Ingestion_evaluation/build_evidence_annotation.py
+python Ingestion_evaluation/finalize_evidence_annotation.py
+```
+
+Generated files are written to:
+
+```text
+data/experiments/evidence_sufficiency/
+```
+
+Evidence sufficiency is classified using three labels:
+
+- `SUFFICIENT` — the retrieved evidence supports a complete grounded response.
+- `PARTIAL` — useful information is supported, but one or more material elements, conditions, or limitations remain unresolved.
+- `INSUFFICIENT` — the retrieved evidence does not reliably establish the requested response.
+
+Initial reference labels were AI-assisted during benchmark development and subsequently manually reviewed against the actual retrieved evidence before being used as reference annotations.
+
+##### 19.4.5 Live Gemini End-to-End Evaluation
+
+A valid `GEMINI_API_KEY` must be configured before running this stage.
+
+The baseline and TrustRAG pipelines use identical:
+
+- BGE top-20 candidate retrieval;
+- MMR diversification with λ = 0.9; and
+- final top-five evidence.
+
+The difference is that TrustRAG performs an explicit evidence-sufficiency assessment before response generation, while the baseline generates directly from the retrieved evidence.
+
+**TrustRAG:**
+
+```bash
+python run_rag_benchmark.py \
+  --mode gated \
+  --model gemini-3.5-flash-lite \
+  --candidate-k 20 \
+  --top-k 5 \
+  --mmr-lambda 0.9 \
+  --output data/experiments/rag_gemini_benchmark/gated_reproduction.jsonl
+```
+
+**Baseline RAG:**
+
+```bash
+python run_rag_benchmark.py \
+  --mode baseline \
+  --model gemini-3.5-flash-lite \
+  --candidate-k 20 \
+  --top-k 5 \
+  --mmr-lambda 0.9 \
+  --output data/experiments/rag_gemini_benchmark/baseline_reproduction.jsonl
+```
+
+The benchmark is resumable. Successfully completed questions are skipped when the same output file is reused. Use `--restart` only when a complete rerun that replaces the selected output is required.
+
+#### 19.5 Reproducibility Notes
+
+Retrieval experiments are deterministic for a fixed corpus, benchmark, dependency environment, and model revision.
+
+Live Gemini outputs may vary between runs because the hosted model and generation process are not fully deterministic. API-based evaluation also consumes quota and may require rate limiting depending on the account and model limits.
+
+For this reason, the repository retains the evaluation outputs used to produce the reported development-benchmark results in addition to providing scripts for reproduction.
 
 Exact commands for reproducing ingestion, retrieval evaluation, evidence-sufficiency evaluation, and end-to-end evaluation are provided with the corresponding scripts.
 
@@ -1111,10 +1292,10 @@ AI assistance was also used during initial benchmark and reference-answer develo
 
 The final architecture, experimental choices, interpretation of results, and submitted implementation were reviewed by the project author.
 
-Coding-agent and AI chat logs used during development are included in:
+Coding-agent chat logs used during development are included in:
 
 ```text
-<INSERT ACTUAL LOG DIRECTORY>
+/sessions/codex/
 ```
 
 The logs are provided for transparency in accordance with the submission requirements.
