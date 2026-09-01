@@ -17,6 +17,7 @@ MMR_LAMBDA = 0.9
 
 
 def build_bundle(project_root: Path, batch_size: int = 32) -> Path:
+    """Retrieve top-five chunks for every question and write an annotation bundle."""
     workbook = project_root / "evaluation_questions" / "benchmark_60_with_draft_gold_answers.xlsx"
     questions = pd.read_excel(workbook)
     questions["question_number"] = questions["question_id"].map(question_number)
