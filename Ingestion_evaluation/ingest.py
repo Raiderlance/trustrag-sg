@@ -39,11 +39,13 @@ DROP_XPATH = (
 
 @dataclass(frozen=True)
 class Section:
+    """Extracted document section with its heading hierarchy and text."""
     heading_path: tuple[str, ...]
     text: str
 
 
 def clean_text(value: str) -> str:
+    """Collapse repeated whitespace and trim extracted page text."""
     value = value.replace("\xa0", " ")
     return re.sub(r"\s+", " ", value).strip()
 
@@ -61,6 +63,7 @@ def extract_next_data_article(tree: html.HtmlElement) -> html.HtmlElement | None
     articles: list[str] = []
 
     def walk(value: object) -> None:
+        """Recursively locate candidate article bodies in Next.js data."""
         if isinstance(value, dict):
             body = value.get("bodyContent")
             if isinstance(body, dict) and isinstance(body.get("value"), str):
@@ -89,6 +92,7 @@ def extract_next_data_article(tree: html.HtmlElement) -> html.HtmlElement | None
 
 
 def load_manifest(path: Path) -> list[dict]:
+    """Load and validate unique source records from the JSON manifest."""
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, list):
         raise ValueError("Manifest root must be a JSON array")
@@ -109,6 +113,7 @@ def load_manifest(path: Path) -> list[dict]:
 
 
 def download(source: dict, raw_dir: Path, session: requests.Session, timeout: int) -> Path:
+    """Download one source page and save its raw HTML response."""
     target = raw_dir / f"{source['source_id']}.html"
     response = session.get(source["url"], timeout=timeout)
     response.raise_for_status()
@@ -152,6 +157,7 @@ def render_download(source: dict, raw_dir: Path, timeout: int) -> Path:
 
 
 def select_content(tree: html.HtmlElement) -> html.HtmlElement:
+    """Choose the most likely main-content element from a parsed page."""
     for xpath in CONTENT_XPATHS:
         candidates = tree.xpath(xpath)
         if candidates:
@@ -163,6 +169,7 @@ def select_content(tree: html.HtmlElement) -> html.HtmlElement:
 
 
 def extract_sections(raw_html: bytes) -> tuple[str | None, list[Section]]:
+    """Extract a canonical URL and heading-aware text sections from HTML."""
     parser = html.HTMLParser(encoding="utf-8", recover=True)
     tree = html.fromstring(raw_html, parser=parser)
     canonical = tree.xpath("string(//link[@rel='canonical']/@href)").strip() or None
@@ -178,6 +185,7 @@ def extract_sections(raw_html: bytes) -> tuple[str | None, list[Section]]:
     buffer: list[str] = []
 
     def flush() -> None:
+        """Store accumulated text as a section when it is non-empty."""
         text = clean_text(" ".join(buffer))
         if text:
             path = tuple(headings[level] for level in sorted(headings))
@@ -224,6 +232,7 @@ def extract_sections(raw_html: bytes) -> tuple[str | None, list[Section]]:
 
 
 def split_words(text: str, max_words: int, overlap_words: int) -> Iterable[str]:
+    """Yield fixed-size word windows with the requested adjacent overlap."""
     words = text.split()
     if not words:
         return
@@ -238,6 +247,7 @@ def split_words(text: str, max_words: int, overlap_words: int) -> Iterable[str]:
 
 def make_chunks(source: dict, canonical: str | None, sections: list[Section], max_words: int,
                 overlap_words: int, content_hash: str) -> list[dict]:
+    """Convert extracted sections into chunk records with source metadata."""
     records = []
     for section_index, section in enumerate(sections):
         for part_index, text in enumerate(split_words(section.text, max_words, overlap_words)):
@@ -264,6 +274,7 @@ def make_chunks(source: dict, canonical: str | None, sections: list[Section], ma
 
 
 def main() -> int:
+    """Download configured sources, extract chunks, and write ingestion reports."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
