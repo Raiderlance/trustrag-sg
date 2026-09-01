@@ -788,17 +788,54 @@ Recall@1 remained unchanged at `0.553` because the highest-ranked BGE candidate 
 
 #### 15.2 Effect on Evidence Diversity
 
-MMR also changed the composition of the final top-five evidence set.
+MMR also changed the composition of the final top-five evidence set. This is
+important because multiple highly similar chunks from the same source can
+occupy several retrieval positions, leaving less room for complementary
+evidence from other sources.
 
-| Selection Method | Unique Sources@5 | Duplicate Fraction@5 | Maximum Source Share@5 |
+Three source-diversity metrics were therefore measured at `k=5`:
+
+- **Unique Sources@5** — the number of distinct source IDs represented in the
+  top five retrieved chunks. The value ranges from 1 to 5, with higher values
+  indicating greater source diversity.
+
+- **Duplicate Fraction@5** — the proportion of the five retrieval positions
+  that are redundant at the source level, calculated as:
+
+  `Duplicate Fraction@5 = 1 - (Unique Sources@5 / 5)`
+
+  A value of `0.0` means that all five chunks come from different sources.
+  For example, three unique sources among five retrieved chunks gives a
+  duplicate fraction of `0.4`.
+
+- **Maximum Source Share@5** — the largest proportion of the top-five
+  positions contributed by any single source. For example, if three of the
+  five chunks come from the same source, the maximum source share is `0.6`.
+  Lower values indicate less concentration around a single source.
+
+The results were:
+
+| Selection Method | Unique Sources@5 ↑ | Duplicate Fraction@5 ↓ | Maximum Source Share@5 ↓ |
 |---|---:|---:|---:|
 | BGE similarity Top-5 | 3.27 | 0.345 | 0.498 |
-| MMR λ=0.9 | **3.51** | **0.298** | **0.463** |
+| **MMR λ=0.9** | **3.51** | **0.298** | **0.463** |
 
-MMR λ=0.9 therefore increased the average number of unique sources represented in the final evidence set while reducing duplicate-source concentration.
+Compared with similarity-only ranking, MMR at `λ=0.9` increased the average
+number of unique sources in the final evidence set from **3.27 to 3.51**.
+At the same time, duplicate-source concentration decreased: Duplicate
+Fraction@5 fell from **0.345 to 0.298**, while Maximum Source Share@5 fell
+from **0.498 to 0.463**.
 
-The result suggests that a relatively small diversity penalty was sufficient for this corpus. Stronger diversification could discard highly relevant chunks merely because they were semantically similar, whereas λ=0.9 retained relevance as the dominant selection criterion while reducing some redundant evidence.
+These results indicate that MMR produced a modest but consistent improvement
+in source diversity without requiring aggressive diversification.
 
+The selected value of `λ=0.9` places substantially more weight on query
+relevance than on the diversity penalty. This was appropriate for the current
+corpus: stronger diversification could replace highly relevant chunks merely
+because they are semantically similar, whereas `λ=0.9` retained relevance as
+the dominant criterion while reducing some redundant evidence.
+
+The goal is therefore not simply to maximise source diversity, but to reduce redundant retrievals while keeping the most relevant evidence. This is especially important for questions that require information from multiple policy pages.
 
 #### 15.3 Final Retrieval Configuration
 
