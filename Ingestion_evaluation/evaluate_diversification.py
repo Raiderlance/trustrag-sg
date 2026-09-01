@@ -53,6 +53,7 @@ def build_mmr_rankings(
     document_embeddings: np.ndarray,
     lambda_mult: float,
 ) -> np.ndarray:
+    """Place MMR-selected candidates first while retaining a full ranking."""
     rows = []
     for query_pos in range(len(similarity_rankings)):
         candidates = similarity_rankings[query_pos, :CANDIDATE_K]
@@ -69,6 +70,7 @@ def build_mmr_rankings(
 
 
 def run_diversification_evaluation(project_root: Path, batch_size: int = 32) -> dict:
+    """Compare similarity ranking with an MMR lambda sweep and save results."""
     questions, audit = load_questions(project_root)
     chunks = load_chunks(project_root / "data/experiments/350w_50o/chunks.jsonl")
     model = SentenceTransformer(MODEL_NAME)
