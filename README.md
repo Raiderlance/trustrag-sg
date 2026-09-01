@@ -1556,7 +1556,7 @@ trustrag-sg/
 └── README.md
 ```
 
-The repository separates corpus preparation, retrieval, evaluation, and the demonstration application so that individual stages can be reproduced and inspected independently.
+
 
 
 
