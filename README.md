@@ -28,6 +28,36 @@ The demonstration covers:
 4. an example where TrustRAG abstains because the retrieved evidence is insufficient;
 
 
+## Contents
+
+1. [Problem Statement](#1-problem-statement)
+2. [Objectives](#2-objectives)
+3. [Target Users](#3-target-users)
+4. [System Architecture](#4-system-architecture)
+5. [Data Sources](#5-data-sources)
+6. [Data Collection and Ingestion](#6-data-collection-and-ingestion)
+7. [Data Processing](#7-data-processing)
+8. [Chunking Strategy](#8-chunking-strategy)
+9. [Retrieval Benchmark](#9-retrieval-benchmark)
+10. [Retrieval Evaluation Methodology](#10-retrieval-evaluation-methodology)
+11. [Chunking Experiment Results](#11-chunking-experiment-results)
+12. [Retrieval Error Analysis](#12-retrieval-error-analysis)
+13. [Final Chunking Selection and Next Retrieval Experiment](#13-final-chunking-selection)
+14. [Retrieval Method Comparison](#14-retrieval-method-comparison)
+15. [Source Diversification with Maximal Marginal Relevance](#15-source-diversification-with-maximal-marginal-relevance)
+16. [Evidence Sufficiency and TrustRAG](#16-evidence-sufficiency-and-trustrag)
+17. [End-to-End Baseline vs TrustRAG Evaluation](#17-end-to-end-baseline-vs-trustrag-evaluation)
+18. [Demonstration Application](#18-demonstration-application)
+19. [Running the Application](#19-running-the-application)
+20. [Docker Deployment](#20-docker-deployment)
+21. [Data Provenance, Licensing and Privacy](#21-data-provenance-licensing-and-privacy)
+22. [Target Environment, Scale, Monitoring and Deployment Risk](#22-target-environment-scale-monitoring-and-deployment-risk)
+23. [Development Narrative](#23-development-narrative)
+24. [AI and Coding-Agent Usage](#24-ai-and-coding-agent-usage)
+25. [Limitations](#25-limitations)
+26. [Repository Structure](#26-repository-structure)
+
+
 ### 1. Problem Statement
 Singapore citizens often rely on official government information for consequential decisions involving housing and retirement. Although agencies such as HDB and CPF Board publish extensive guidance online, relevant information may be distributed across multiple pages and contain eligibility conditions, exceptions, and time-sensitive rules.
 
@@ -627,7 +657,7 @@ Rather than retaining the reranker based on architectural complexity alone, the 
 This also reduces inference latency and compute requirements because the final retrieval pipeline does not require an additional cross-encoder pass over candidate passages.
 
 
-### 15. Why Relevant Evidence Is Still Missed
+### 14.3 Why Relevant Evidence Is Still Missed
 
 Although BGE achieved the strongest overall ranking performance, its Recall@5 remained `0.803`.
 
@@ -670,53 +700,6 @@ This behaviour is not necessarily incorrect: multiple chunks from the same sourc
 However, it can reduce evidence coverage for multi-hop questions where the complete answer requires information from more than one source.
 
 The combination of high candidate Recall@20 and observed duplicate-source crowding motivates a targeted source-diversification experiment.
-
-
-### 16. Source Diversification Experiment
-
-Rather than adding source diversification directly to the retrieval pipeline, it is evaluated as a separate intervention.
-
-The purpose of diversification is not to identify new candidate evidence. Instead, it tests whether the final evidence set benefits from limiting the number of highly similar chunks originating from the same source.
-
-The experiment therefore compares:
-
-```text
-BGE retrieval
-      ↓
-Top-20 candidates
-      ↓
-Standard ranking
-      ↓
-Top 5
-```
-
-against:
-
-```text
-BGE retrieval
-      ↓
-Top-20 candidates
-      ↓
-Source-aware diversification
-      ↓
-Top 5
-```
-
-The primary metrics remain:
-
-- Recall@1;
-- Recall@3;
-- Recall@5;
-- MRR.
-
-Particular attention is also given to:
-
-- multi-hop Recall@K;
-- number of unique sources in the final evidence set;
-- duplicate fraction; and
-- source coverage for questions requiring multiple gold sources.
-
-This experiment is motivated directly by observed retrieval errors rather than introducing diversification as an assumed improvement.
 
 
 
@@ -900,18 +883,6 @@ This separation makes it possible to distinguish between:
 1. retrieval failure — the necessary evidence was not retrieved;
 2. sufficiency-assessment failure — the evidence was retrieved but incorrectly classified; and
 3. generation failure — sufficient evidence was available but the final response was not properly grounded.
-
-#### 16.2 Evidence-Sufficiency Evaluation
-
-The predicted `SUFFICIENT`, `PARTIAL`, and `INSUFFICIENT` labels are compared against the manually reviewed reference labels.
-
-Evaluation includes:
-
-- overall classification accuracy;
-- per-class precision;
-- per-class recall;
-- per-class F1-score; and
-- confusion-matrix analysis.
 
 
 #### 16.2 Evidence-Assessment Evaluation
