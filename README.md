@@ -1179,7 +1179,79 @@ Once Streamlit starts, open the local URL displayed in the terminal, typically:
 ```text
 http://localhost:8501
 ```
-#### 19.4 Reproduce Evaluation
+#### 19.4 Reproduce Ingestion
+
+The data acquisition and processing methodology is described in Sections 6
+and 7.
+
+The repository contains the raw HTML snapshots used to construct the
+experimental corpus. Using these saved snapshots provides a reproducible
+processing path without requiring the source webpages to be downloaded again.
+
+Install the required dependencies from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+To regenerate the final 350-word / 50-word-overlap corpus from the saved HTML
+snapshots:
+
+```bash
+python Ingestion_evaluation/ingest.py \
+  --manifest source_manifest.json \
+  --max-words 350 \
+  --overlap-words 50 \
+  --use-cache
+```
+
+The `--use-cache` option reuses the saved raw HTML files rather than
+re-downloading the source webpages.
+
+The HDB pages were manually downloaded as described in Section 6. `CPF10`
+was originally acquired using Playwright because its complete content is
+JavaScript-rendered. The rendered DOM was saved as HTML and is included with
+the other raw inputs. Therefore, Playwright is not required when reproducing
+the corpus from the provided HTML snapshots.
+
+##### Optional: Re-acquire CPF10 from the Live Page
+
+To reproduce the original acquisition method for `CPF10`, install the
+Playwright Chromium browser:
+
+```bash
+python -m playwright install chromium
+```
+
+Then run:
+
+```bash
+python Ingestion_evaluation/ingest.py \
+  --manifest source_manifest.json \
+  --max-words 350 \
+  --overlap-words 50 \
+  --use-cache \
+  --render-source CPF10
+```
+
+`--render-source CPF10` overrides the cached copy for that source and uses
+Playwright to render the live page before saving and processing the resulting
+HTML. Other available cached sources are reused.
+
+The final processed corpus is written to:
+
+```text
+data/processed/chunks.jsonl
+```
+
+An ingestion report is also generated at:
+
+```text
+data/processed/ingestion_report.json
+```
+
+
+#### 19.5 Reproduce Evaluation
 
 Evaluation dependencies are separate from the application dependencies. From the repository root, install them using:
 
@@ -1205,7 +1277,7 @@ data/
     └── chunks.jsonl
 ```
 
-##### 19.4.1 BGE Chunking Evaluation
+##### 19.5.1 BGE Chunking Evaluation
 
 This experiment compares the three section-aware chunking configurations:
 
@@ -1227,7 +1299,7 @@ Results are written to:
 data/experiments/evaluation_bge/
 ```
 
-##### 19.4.2 TF-IDF, BGE, and BGE + Reranking
+##### 19.5.2 TF-IDF, BGE, and BGE + Reranking
 
 After selecting the 350/50 chunking configuration, this experiment compares:
 
@@ -1251,7 +1323,7 @@ data/experiments/evaluation_retrievers_350w_50o/
 
 The cross-encoder configuration is retained as an evaluated alternative but was not selected for the final retrieval architecture.
 
-##### 19.4.3 Similarity Ranking vs MMR Diversification
+##### 19.5.3 Similarity Ranking vs MMR Diversification
 
 This experiment compares similarity-only top-five selection against Maximal Marginal Relevance (MMR) selection from the same BGE top-20 candidate set.
 
@@ -1269,7 +1341,7 @@ Results, diversity statistics, and error-analysis outputs are written to:
 data/experiments/evaluation_diversification_350w_50o/
 ```
 
-##### 19.4.4 Evidence-Sufficiency Evaluation Data
+##### 19.5.4 Evidence-Sufficiency Evaluation Data
 
 The final retrieval configuration uses BGE retrieval followed by MMR diversification with λ = 0.9.
 
@@ -1294,7 +1366,7 @@ Evidence sufficiency is classified using three labels:
 
 Initial reference labels were AI-assisted during benchmark development and subsequently manually reviewed against the actual retrieved evidence before being used as reference annotations.
 
-##### 19.4.5 Live Gemini End-to-End Evaluation
+##### 19.5.5 Live Gemini End-to-End Evaluation
 
 A valid `GEMINI_API_KEY` must be configured before running this stage.
 
@@ -1332,7 +1404,7 @@ python run_rag_benchmark.py \
 
 The benchmark is resumable. Successfully completed questions are skipped when the same output file is reused. Use `--restart` only when a complete rerun that replaces the selected output is required.
 
-#### 19.5 Reproducibility Notes
+#### 19.6 Reproducibility Notes
 
 Retrieval experiments are deterministic for a fixed corpus, benchmark, dependency environment, and model revision.
 
@@ -1479,7 +1551,7 @@ trustrag-sg/
 ├── source_manifest.json
 ├── app.py
 ├── rag.py
-├── requirements.txt
+├── requirements-app.txt
 ├── Dockerfile
 └── README.md
 ```
