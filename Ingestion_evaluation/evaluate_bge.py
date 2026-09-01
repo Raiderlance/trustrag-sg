@@ -18,17 +18,20 @@ CONFIG_NAMES = ("350w_50o", "250w_40o", "150w_30o")
 
 
 def question_number(value: object) -> int | None:
+    """Extract the first integer from a benchmark question identifier."""
     match = re.search(r"\d+", str(value))
     return int(match.group()) if match else None
 
 
 def parse_gold_sources(value: object) -> set[str]:
+    """Parse a delimited spreadsheet cell into normalized gold source IDs."""
     if pd.isna(value) or not str(value).strip():
         return set()
     return {part.strip() for part in re.split(r"[,;|+]", str(value)) if part.strip()}
 
 
 def load_questions(project_root: Path) -> tuple[pd.DataFrame, dict]:
+    """Load scorable benchmark questions and return dataset audit counts."""
     path = project_root / "evaluation_questions" / "benchmark_60_with_draft_gold_answers.xlsx"
     all_questions = pd.read_excel(path)
     all_questions["question_number"] = all_questions["question_id"].map(question_number)
@@ -46,6 +49,7 @@ def load_questions(project_root: Path) -> tuple[pd.DataFrame, dict]:
 
 
 def load_chunks(path: Path) -> pd.DataFrame:
+    """Load a JSONL chunk corpus into the evaluation dataframe schema."""
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     return pd.DataFrame([
         {
@@ -67,6 +71,7 @@ def evaluate_configuration(
     query_embeddings: np.ndarray,
     batch_size: int = 32,
 ) -> pd.DataFrame:
+    """Score one chunking configuration using source-level relevance labels."""
     document_embeddings = model.encode(
         chunks["text"].tolist(),
         batch_size=batch_size,
@@ -104,6 +109,7 @@ def evaluate_configuration(
 
 
 def run_evaluation(project_root: Path, batch_size: int = 32) -> dict:
+    """Evaluate all chunking configurations and persist detailed summaries."""
     questions, audit = load_questions(project_root)
     corpora = {
         name: load_chunks(project_root / "data" / "experiments" / name / "chunks.jsonl")
