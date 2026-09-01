@@ -19,6 +19,7 @@ DEFAULT_OUTPUT = "data/experiments/rag_gemini_benchmark/results.jsonl"
 
 
 def load_completed(path: Path) -> set[str]:
+    """Return question IDs with successful records in a resumable output file."""
     if not path.exists():
         return set()
     completed = set()
@@ -31,6 +32,7 @@ def load_completed(path: Path) -> set[str]:
 
 
 def main() -> None:
+    """Run gated or baseline RAG over the benchmark and save JSONL and CSV."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--questions", default=DEFAULT_QUESTIONS)
     parser.add_argument("--sheet", default="evidence_sufficiency_annotation")
