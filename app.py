@@ -25,10 +25,12 @@ SAMPLE_QUESTIONS = (
 
 @st.cache_resource(show_spinner="Loading BGE model and persisted document embeddings…")
 def load_retriever(chunks_path: str) -> DenseMMRRetriever:
+    """Load and cache the fixed BGE/MMR retriever for a chunk corpus."""
     return DenseMMRRetriever.from_jsonl(chunks_path, candidate_k=20, lambda_mult=0.9)
 
 
 def render_sources(chunks) -> None:
+    """Render retrieved chunks, metadata, scores, and source links."""
     st.subheader("Retrieved evidence")
     st.caption("BGE dense top-20 → MMR λ=0.9 → final top 5")
     for rank, item in enumerate(chunks, start=1):
@@ -46,6 +48,7 @@ def render_sources(chunks) -> None:
 
 
 def main() -> None:
+    """Render the Streamlit interface and process submitted questions."""
     st.set_page_config(page_title="TrustRAG SG", page_icon="🏠", layout="wide")
     st.title("TrustRAG SG")
     st.write(
