@@ -17,11 +17,13 @@ from pydantic import BaseModel, Field
 
 @dataclass(frozen=True)
 class RetrievedChunk:
+    """A retrieved corpus chunk paired with its query-similarity score."""
     chunk: dict[str, Any]
     score: float
 
 
 class EvidenceAssessment(BaseModel):
+    """Structured judgment of whether retrieved evidence supports an answer."""
     sufficiency: Literal["SUFFICIENT", "PARTIAL", "INSUFFICIENT"]
     support: str = Field(
         description="Whether the retrieved evidence explicitly supports the required claim."
@@ -40,14 +42,18 @@ class EvidenceAssessment(BaseModel):
 
 
 class EvidenceAwareGenerator(Protocol):
+    """Interface required by the evidence-gated RAG pipeline."""
     def assess_evidence(
         self, question: str, chunks: Sequence[RetrievedChunk]
-    ) -> EvidenceAssessment: ...
+    ) -> EvidenceAssessment: 
+        """Return a structured sufficiency assessment for retrieved chunks."""
+        ...
 
     def generate_response(
         self, question: str, chunks: Sequence[RetrievedChunk], assessment: EvidenceAssessment
-    ) -> str: ...
-
+    ) -> str: 
+        """Generate an answer that follows the supplied evidence assessment."""
+        ...
 
 class DenseMMRRetriever:
     """BGE semantic retrieval followed by maximal marginal relevance selection."""
@@ -65,6 +71,7 @@ class DenseMMRRetriever:
         cache_path: str | Path | None = None,
         rebuild_cache: bool = False,
     ) -> None:
+        """Initialize the encoder and load document embeddings."""
         if not chunks:
             raise ValueError("The chunk collection is empty")
         if candidate_k < 1:
@@ -105,6 +112,7 @@ class DenseMMRRetriever:
 
     @classmethod
     def from_jsonl(cls, path: str | Path, **kwargs: Any) -> "DenseMMRRetriever":
+        """Create a retriever from a JSONL corpus with a colocated cache."""
         path = Path(path)
         with path.open(encoding="utf-8") as handle:
             if "cache_path" not in kwargs or kwargs["cache_path"] is None:
@@ -112,6 +120,7 @@ class DenseMMRRetriever:
             return cls([json.loads(line) for line in handle if line.strip()], **kwargs)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
+        """Return semantically relevant, MMR-diversified chunks for a query."""
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
         query_embedding = np.asarray(self.model.encode(
@@ -151,6 +160,7 @@ class GeminiGenerator:
         client: Any = None,
         min_request_interval: float = 0,
     ) -> None:
+        """Configure Gemini for testing."""
         self.model = (
             model
             or os.getenv("GEMINI_MODEL")
@@ -172,6 +182,7 @@ class GeminiGenerator:
         self.client = genai.Client(api_key=key)
 
     def generate(self, question: str, chunks: Sequence[RetrievedChunk]) -> str:
+        """Assess retrieved evidence and generate an evidence-aware response."""
         assessment = self.assess_evidence(question, chunks)
         return self.generate_response(question, chunks, assessment)
 
@@ -216,6 +227,7 @@ RETRIEVED EVIDENCE:
     def assess_evidence(
         self, question: str, chunks: Sequence[RetrievedChunk]
     ) -> EvidenceAssessment:
+        """Classify support and completeness using only retrieved chunks."""
         if not chunks:
             return EvidenceAssessment(
                 sufficiency="INSUFFICIENT",
@@ -273,6 +285,7 @@ RETRIEVED EVIDENCE:
         chunks: Sequence[RetrievedChunk],
         assessment: EvidenceAssessment,
     ) -> str:
+        """Generate a grounded answer constrained by an evidence assessment."""
         if assessment.sufficiency == "INSUFFICIENT":
             return "I could not find sufficient evidence in the retrieved sources to answer this reliably."
         context = "\n\n".join(_format_chunk(index, item.chunk) for index, item in enumerate(chunks, 1))
@@ -298,6 +311,7 @@ RETRIEVED EVIDENCE:
         return text.strip()
 
     def _generate_content(self, **kwargs: Any) -> Any:
+        """Call Gemini while enforcing the configured minimum request interval."""
         if self._last_request_at is not None and self.min_request_interval > 0:
             elapsed = time.monotonic() - self._last_request_at
             if elapsed < self.min_request_interval:
@@ -308,17 +322,21 @@ RETRIEVED EVIDENCE:
 
 
 class RAGPipeline:
+    """Coordinate retrieval, evidence assessment, and grounded generation."""
     def __init__(self, retriever: DenseMMRRetriever, generator: EvidenceAwareGenerator) -> None:
+        """Store the retriever and evidence-aware generator dependencies."""
         self.retriever = retriever
         self.generator = generator
 
     def ask(self, question: str, top_k: int = 5) -> tuple[str, list[RetrievedChunk]]:
+        """Answer a question and return the chunks used for generation."""
         answer, chunks, _ = self.ask_with_assessment(question, top_k)
         return answer, chunks
 
     def ask_with_assessment(
         self, question: str, top_k: int = 5
     ) -> tuple[str, list[RetrievedChunk], EvidenceAssessment]:
+        """Answer a question and expose both retrieved chunks and assessment."""
         chunks = self.retriever.retrieve(question, top_k)
         assessment = self.generator.assess_evidence(question, chunks)
         answer = self.generator.generate_response(question, chunks, assessment)
@@ -329,15 +347,18 @@ class BaselineRAGPipeline:
     """Single-call answer baseline using the same retriever as the gated pipeline."""
 
     def __init__(self, retriever: DenseMMRRetriever, generator: GeminiGenerator) -> None:
+        """Store dependencies for direct generation without an evidence gate."""
         self.retriever = retriever
         self.generator = generator
 
     def ask(self, question: str, top_k: int = 5) -> tuple[str, list[RetrievedChunk]]:
+        """Retrieve chunks and generate an answer in a single Gemini call."""
         chunks = self.retriever.retrieve(question, top_k)
         return self.generator.generate_baseline(question, chunks), chunks
 
 
 def _format_chunk(number: int, chunk: dict[str, Any]) -> str:
+    """Format one chunk with citation number and provenance for a prompt."""
     metadata = chunk.get("metadata", {})
     title = metadata.get("title") or chunk.get("title") or "Untitled"
     url = metadata.get("url") or chunk.get("url") or "No URL"
@@ -361,6 +382,7 @@ def _dotenv_value(name: str, path: str | Path = ".env") -> str | None:
 
 
 def _corpus_digest(chunks: Sequence[dict[str, Any]]) -> str:
+    """Hash stable chunk identifiers and text to detect corpus changes."""
     digest = hashlib.sha256()
     for chunk in chunks:
         digest.update(str(chunk.get("chunk_id", "")).encode("utf-8"))
@@ -373,6 +395,7 @@ def _corpus_digest(chunks: Sequence[dict[str, Any]]) -> str:
 def _load_embedding_cache(
     path: Path, corpus_digest: str, model_name: str, chunk_count: int
 ) -> np.ndarray | None:
+    """Load cached embeddings when corpus shape and metadata still match."""
     if not path.exists():
         return None
     try:
@@ -392,6 +415,7 @@ def _load_embedding_cache(
 def _save_embedding_cache(
     path: Path, embeddings: np.ndarray, corpus_digest: str, model_name: str
 ) -> None:
+    """Atomically save document embeddings and cache-validation metadata."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
     with temporary.open("wb") as handle:
@@ -405,6 +429,7 @@ def _save_embedding_cache(
 
 
 def main() -> None:
+    """Run the evidence-gated RAG pipeline from the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("question")
     parser.add_argument("--chunks", default="data/processed/chunks.jsonl")
