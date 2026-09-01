@@ -42,7 +42,7 @@ The demonstration covers:
 10. [Retrieval Evaluation Methodology](#10-retrieval-evaluation-methodology)
 11. [Chunking Experiment Results](#11-chunking-experiment-results)
 12. [Retrieval Error Analysis](#12-retrieval-error-analysis)
-13. [Final Chunking Selection and Next Retrieval Experiment](#13-final-chunking-selection)
+13. [Final Chunking Selection](#13-final-chunking-selection)
 14. [Retrieval Method Comparison](#14-retrieval-method-comparison)
 15. [Source Diversification with Maximal Marginal Relevance](#15-source-diversification-with-maximal-marginal-relevance)
 16. [Evidence Sufficiency and TrustRAG](#16-evidence-sufficiency-and-trustrag)
