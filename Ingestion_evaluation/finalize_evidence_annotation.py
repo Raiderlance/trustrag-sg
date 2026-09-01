@@ -78,6 +78,7 @@ PARTIAL_IDS = {"Q5", "Q9", "Q18", "Q19", "Q20", "Q25", "Q28", "Q32"}
 
 
 def main() -> None:
+    """Merge reviewed decisions into the annotation bundle and export reports."""
     root = Path(__file__).resolve().parent
     bundle_path = root / "data/experiments/evidence_sufficiency/retrieval_bundle_all_60.jsonl"
     records = [json.loads(line) for line in bundle_path.read_text(encoding="utf-8").splitlines()]
