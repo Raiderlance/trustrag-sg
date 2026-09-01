@@ -26,6 +26,7 @@ def score_rankings(
     rankings: np.ndarray,
     candidate_k: int = CANDIDATE_K,
 ) -> pd.DataFrame:
+    """Compute retrieval, diversity, and error metrics for ranked chunks."""
     rows = []
     for query_pos, (_, question) in enumerate(questions.iterrows()):
         ranked = chunks.iloc[rankings[query_pos]].reset_index(drop=True)
@@ -79,6 +80,7 @@ def score_rankings(
 
 
 def run_comparison(project_root: Path, batch_size: int = 32) -> dict:
+    """Compare TF-IDF, dense BGE, and cross-encoder-reranked retrieval."""
     questions, audit = load_questions(project_root)
     chunks = load_chunks(project_root / "data/experiments/350w_50o/chunks.jsonl")
     query_texts = questions["question"].tolist()
